@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # Build and push Docker image with Buildx (don't push on PR)
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:zero-3
+          outputs: type=tar,dest=/tmp/archlinux-rootfs.tar
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build ArchLinuxARM Radxa Zero 3 image
+        run: |
+          truncate -s 6g ./ArchLinuxARM-radxa-zero-3-latest.img
+          echo -e 'label: gpt\nstart=32768, type=linux' | sfdisk ./ArchLinuxARM-radxa-zero-3-latest.img
+
+          # Setup root filesystem
+          loop_device=$(sudo losetup --partscan --show --find ./ArchLinuxARM-radxa-zero-3-latest.img)
+          loop_partition="${loop_device}p1"
+          sudo mkfs.ext4 "$loop_partition"
+          sudo mkdir /mnt/root
+          sudo mount "$loop_partition" /mnt/root
+          sudo tar -xpf /tmp/archlinux-rootfs.tar --directory /mnt/root
+          sudo umount /mnt/root
+          sudo losetup --detach "$loop_device"
+
+          # Install U-Boot bootloader
+          wget https://github.com/vially/PKGBUILDs/releases/download/uboot-radxa-zero-3-2024.10-1/idbloader.img
+          wget https://github.com/vially/PKGBUILDs/releases/download/uboot-radxa-zero-3-2024.10-1/u-boot.itb
+          dd if=./idbloader.img of=./ArchLinuxARM-radxa-zero-3-latest.img seek=64 conv=notrunc
+          dd if=./u-boot.itb of=./ArchLinuxARM-radxa-zero-3-latest.img seek=16384 conv=notrunc
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArchLinuxARM-radxa-zero-3-latest.img
+          path: ./ArchLinuxARM-radxa-zero-3-latest.img
