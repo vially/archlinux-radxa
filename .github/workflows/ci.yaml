@@ -60,7 +60,7 @@ jobs:
 
       - name: Build ArchLinuxARM Radxa Zero 3 image
         run: |
-          truncate -s 6g ./ArchLinuxARM-radxa-zero-3-latest.img
+          truncate -s 3g ./ArchLinuxARM-radxa-zero-3-latest.img
           echo -e 'label: gpt\nstart=32768, type=linux' | sfdisk ./ArchLinuxARM-radxa-zero-3-latest.img
 
           # Setup root filesystem
