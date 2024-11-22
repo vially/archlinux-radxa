@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [cm3588]
   pull_request:
-    branches: [ main ]
+    branches: [cm3588]
 
 env:
   REGISTRY: ghcr.io
@@ -58,13 +58,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build ArchLinuxARM Radxa Zero 3 image
+      - name: Build ArchLinuxARM CM3588 NAS image
         run: |
-          truncate -s 3g ./ArchLinuxARM-radxa-zero-3-latest.img
-          echo -e 'label: gpt\nstart=32768, type=linux' | sfdisk ./ArchLinuxARM-radxa-zero-3-latest.img
+          truncate -s 3g ./ArchLinuxARM-cm3588-nas-latest.img
+          echo -e 'label: gpt\nstart=32768, type=linux' | sfdisk ./ArchLinuxARM-cm3588-nas-latest.img
 
           # Setup root filesystem
-          loop_device=$(sudo losetup --partscan --show --find ./ArchLinuxARM-radxa-zero-3-latest.img)
+          loop_device=$(sudo losetup --partscan --show --find ./ArchLinuxARM-cm3588-nas-latest.img)
           loop_partition="${loop_device}p1"
           sudo mkfs.ext4 "$loop_partition"
           sudo mkdir /mnt/root
@@ -74,12 +74,12 @@ jobs:
           sudo losetup --detach "$loop_device"
 
           # Install U-Boot bootloader
-          wget https://github.com/vially/PKGBUILDs/releases/download/uboot-radxa-zero-3-2024.10-1/idbloader.img
-          wget https://github.com/vially/PKGBUILDs/releases/download/uboot-radxa-zero-3-2024.10-1/u-boot.itb
-          dd if=./idbloader.img of=./ArchLinuxARM-radxa-zero-3-latest.img seek=64 conv=notrunc
-          dd if=./u-boot.itb of=./ArchLinuxARM-radxa-zero-3-latest.img seek=16384 conv=notrunc
+          wget https://github.com/vially/PKGBUILDs/releases/download/uboot-cm3588-nas-2024.10-1/idbloader.img
+          wget https://github.com/vially/PKGBUILDs/releases/download/uboot-cm3588-nas-2024.10-1/u-boot.itb
+          dd if=./idbloader.img of=./ArchLinuxARM-cm3588-nas-latest.img seek=64 conv=notrunc
+          dd if=./u-boot.itb of=./ArchLinuxARM-cm3588-nas-latest.img seek=16384 conv=notrunc
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ArchLinuxARM-radxa-zero-3-latest.img
-          path: ./ArchLinuxARM-radxa-zero-3-latest.img
+          name: ArchLinuxARM-cm3588-nas-latest.img
+          path: ./ArchLinuxARM-cm3588-nas-latest.img
